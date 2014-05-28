@@ -2,6 +2,8 @@ pokedex
 =======
 Hopefully this eventually becomes our cool pokedex. Recognizes pokemon sprites using machine learning!
 
+some code referenced from here:
+http://www.juergenwiki.de/work/wiki/doku.php?id=public%3ahog_descriptor_computation_and_visualization
 
 Setup Instructions:
 =================
