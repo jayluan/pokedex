@@ -48,4 +48,4 @@ $ make
 
 run by invoking:
 
-$ ./DisplayImage <sample_file.png>
+$ ./DisplayImage some_image_file.png
