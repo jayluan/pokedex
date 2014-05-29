@@ -160,7 +160,7 @@ Mat get_hogdescriptor_visual_image(Mat& origImg,
                 line(visual_image,
                      Point(x1*scaleFactor,y1*scaleFactor),
                      Point(x2*scaleFactor,y2*scaleFactor),
-                     CV_RGB(0,0,255),
+                     CV_RGB(255,0,0),
                      1);
  
             } // for (all bins)
@@ -186,17 +186,40 @@ Mat get_hogdescriptor_visual_image(Mat& origImg,
  
 }
 
-Mat comput_hog (char *fname)
+/*Computes the set of histogram values and returns them as a 1D vector in the form of...
+  [block(1,1), cell(1,1), bin1], [block(1,1), cell(1,1), bin2], ... [block(1,1), cell(1,1), bin9],
+  [block(1,1), cell(2,1), bin1], [block(1,1), cell(2,1), bin2], ... [block(1,1), cell(2,1), bin9],
+  ...
+  ...
+  ...
+  [block(2,1), cell(1,1), bin1], [block(2,1), cell(1,1), bin2], ... [block(2,1), cell(1,2), bin9],
+  ...
+  ...
+  ...
+
+  Input:
+  img_raw - raw colored image matrix, must have dimensions with multiples of 8
+  
+  Output:
+  img - (optional) output black and white image
+  descriptorsValues - 1D vector of descriptor values as described above
+  
+*/
+std::vector<float> comput_hog (Mat& img_raw, Mat& img)
 {
-    Mat img_raw = imread(fname, 1); // load as color image
+//    Mat img_raw = imread(fname, 1); // load as color image
+    Size imSize = Size(img_raw.rows, img_raw.cols);
  
-    resize(img_raw, img_raw, Size(128,128) );
- 
-    Mat img;
-    //cv::cvtColor(img_raw, img, CV_RGB2GRAY);
     cvtColor(img_raw, img, CV_RGB2GRAY);
  
-    HOGDescriptor d(cvSize(9,9), cvSize(9,9), cvSize(9,9), cvSize(9,9),8);
+    Size block_size = Size(16, 16);
+    Size block_stride = Size(8,8);
+    Size cell_size = Size(8,8);
+    int nbins = 9;
+
+    //Specify custom descriptor block and image sizes
+    HOGDescriptor desc( imSize, block_size, block_stride, cell_size, nbins);
+
 // Size(128,64), //winSize
 // Size(16,16), //blocksize
 // Size(8,8), //blockStride,
@@ -215,15 +238,16 @@ Mat comput_hog (char *fname)
 //                             const vector<Point>& locations) const
     std::vector<float> descriptorsValues;
     std::vector<Point> locations;
-//    d.compute( img, descriptorsValues, Size(0,0), Size(0,0), locations);
-    d.compute(img, descriptorsValues, Size(1,1), Size(0,0));
+    Size padding = Size(0,0);
 
-    std::cout << "HOG descriptor size is " << d.getDescriptorSize() << std::endl;
+    //I used imSize here for the stride. I don't think it matters when there's no striding
+    desc.compute(img, descriptorsValues, imSize, padding, locations);
+
+    std::cout << "HOG descriptor size is " << desc.getDescriptorSize() << std::endl;
     std::cout << "img dimensions: " << img.cols << " width x " << img.rows << "height" << std::endl;
     std::cout << "Found " << descriptorsValues.size() << " descriptor values" << std::endl;
     std::cout << "Nr of locations specified : " << locations.size() << std::endl;
-
-    return get_hogdescriptor_visual_image(img,  descriptorsValues, Size(1,1), Size(9,9), 1, 1);
+    return descriptorsValues;
 }
 
 int main(int argc, char** argv )
@@ -236,16 +260,32 @@ int main(int argc, char** argv )
 
     Mat image;
     image = imread( argv[1], 1 );
-
+    
     if ( !image.data )
     {
         printf("No image data \n");
         return -1;
     }
     namedWindow("Display Image" );
-    imshow("Display Image", image);
-    
-    Mat real_img = comput_hog ( argv[1] );
+
+    //Resize the image up the the next factor of 8
+    int newRows = (int(image.rows/8) + 1)*8;
+    int newCols = (int(image.cols/8) + 1)*8;
+    resize(image, image, Size(newRows, newCols));
+
+    Mat bw_img;
+    Mat real_img;
+    Size imSize = Size(image.rows, image.cols);
+    Size cell_size = Size(8,8);
+
+    //Compute Gradients for each cell at each angle
+    std::vector<float> descriptors = comput_hog ( image, bw_img);
+    //Visualize histogram of graidents on the origianl image
+    int enlarge_factor = 4;   //How big to resize the output image
+    int enlarge_histogram_factor = 3; //How large to display each histogram
+    real_img = get_hogdescriptor_visual_image(image, descriptors, imSize, cell_size, enlarge_factor, enlarge_histogram_factor);
+
+    //Display the histogram
     imshow("Display Image", real_img);
     waitKey(0);
 
