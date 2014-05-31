@@ -1,294 +1,66 @@
 #include <stdio.h>
-#include <opencv2/opencv.hpp>
-#include "opencv2/imgproc/imgproc.hpp"
-#include "opencv2/core/core.hpp"
-#include "opencv2/highgui/highgui.hpp"
-#include "opencv2/imgproc/types_c.h"
 #include <iostream>
-#include <string.h>
-#include <vector>
+#include "opencv2/core/core.hpp"
+#include "opencv2/features2d/features2d.hpp"
+#include "opencv2/highgui/highgui.hpp"
+#include "opencv2/nonfree/features2d.hpp"
 
 using namespace cv;
 
-// HOGDescriptor visual_imagealizer
-// adapted for arbitrary size of feature sets and training images
-Mat get_hogdescriptor_visual_image(Mat& origImg,
-				   std::vector<float>& descriptorValues,
-                                   Size winSize,
-                                   Size cellSize,                                   
-                                   int scaleFactor,
-                                   double viz_factor)
-{   
-    Mat visual_image;
-    resize(origImg, visual_image, Size(origImg.cols*scaleFactor, origImg.rows*scaleFactor));
- 
-    int gradientBinSize = 9;
-    // dividing 180° into 9 bins, how large (in rad) is one bin?
-    float radRangeForOneBin = 3.14/(float)gradientBinSize; 
- 
-    // prepare data structure: 9 orientation / gradient strenghts for each cell
-	int cells_in_x_dir = winSize.width / cellSize.width;
-    int cells_in_y_dir = winSize.height / cellSize.height;
-    int totalnrofcells = cells_in_x_dir * cells_in_y_dir;
-    float*** gradientStrengths = new float**[cells_in_y_dir];
-    int** cellUpdateCounter   = new int*[cells_in_y_dir];
-    for (int y=0; y<cells_in_y_dir; y++)
-    {
-        gradientStrengths[y] = new float*[cells_in_x_dir];
-        cellUpdateCounter[y] = new int[cells_in_x_dir];
-        for (int x=0; x<cells_in_x_dir; x++)
-        {
-            gradientStrengths[y][x] = new float[gradientBinSize];
-            cellUpdateCounter[y][x] = 0;
- 
-            for (int bin=0; bin<gradientBinSize; bin++)
-                gradientStrengths[y][x][bin] = 0.0;
-        }
-    }
- 
-    // nr of blocks = nr of cells - 1
-    // since there is a new block on each cell (overlapping blocks!) but the last one
-    int blocks_in_x_dir = cells_in_x_dir - 1;
-    int blocks_in_y_dir = cells_in_y_dir - 1;
- 
-    // compute gradient strengths per cell
-    int descriptorDataIdx = 0;
-    int cellx = 0;
-    int celly = 0;
- 
-    for (int blockx=0; blockx<blocks_in_x_dir; blockx++)
-    {
-        for (int blocky=0; blocky<blocks_in_y_dir; blocky++)            
-        {
-            // 4 cells per block ...
-            for (int cellNr=0; cellNr<4; cellNr++)
-            {
-                // compute corresponding cell nr
-                int cellx = blockx;
-                int celly = blocky;
-                if (cellNr==1) celly++;
-                if (cellNr==2) cellx++;
-                if (cellNr==3)
-                {
-                    cellx++;
-                    celly++;
-                }
- 
-                for (int bin=0; bin<gradientBinSize; bin++)
-                {
-                    float gradientStrength = descriptorValues[ descriptorDataIdx ];
-                    descriptorDataIdx++;
- 
-                    gradientStrengths[celly][cellx][bin] += gradientStrength;
- 
-                } // for (all bins)
- 
- 
-                // note: overlapping blocks lead to multiple updates of this sum!
-                // we therefore keep track how often a cell was updated,
-                // to compute average gradient strengths
-                cellUpdateCounter[celly][cellx]++;
- 
-            } // for (all cells)
- 
- 
-        } // for (all block x pos)
-    } // for (all block y pos)
- 
- 
-    // compute average gradient strengths
-    for (int celly=0; celly<cells_in_y_dir; celly++)
-    {
-        for (int cellx=0; cellx<cells_in_x_dir; cellx++)
-        {
- 
-            float NrUpdatesForThisCell = (float)cellUpdateCounter[celly][cellx];
- 
-            // compute average gradient strenghts for each gradient bin direction
-            for (int bin=0; bin<gradientBinSize; bin++)
-            {
-                gradientStrengths[celly][cellx][bin] /= NrUpdatesForThisCell;
-            }
-        }
-    }
- 
- 
-    std::cout << "descriptorDataIdx = " << descriptorDataIdx << std::endl;
- 
-    // draw cells
-    for (int celly=0; celly<cells_in_y_dir; celly++)
-    {
-        for (int cellx=0; cellx<cells_in_x_dir; cellx++)
-        {
-            int drawX = cellx * cellSize.width;
-            int drawY = celly * cellSize.height;
- 
-            int mx = drawX + cellSize.width/2;
-            int my = drawY + cellSize.height/2;
- 
-            rectangle(visual_image,
-                      Point(drawX*scaleFactor,drawY*scaleFactor),
-                      Point((drawX+cellSize.width)*scaleFactor,
-                      (drawY+cellSize.height)*scaleFactor),
-                      CV_RGB(100,100,100),
-                      1);
- 
-            // draw in each cell all 9 gradient strengths
-            for (int bin=0; bin<gradientBinSize; bin++)
-            {
-                float currentGradStrength = gradientStrengths[celly][cellx][bin];
- 
-                // no line to draw?
-                if (currentGradStrength==0)
-                    continue;
- 
-                float currRad = bin * radRangeForOneBin + radRangeForOneBin/2;
- 
-                float dirVecX = cos( currRad );
-                float dirVecY = sin( currRad );
-                float maxVecLen = cellSize.width/2;
-                float scale = viz_factor; // just a visual_imagealization scale,
-                                          // to see the lines better
- 
-                // compute line coordinates
-                float x1 = mx - dirVecX * currentGradStrength * maxVecLen * scale;
-                float y1 = my - dirVecY * currentGradStrength * maxVecLen * scale;
-                float x2 = mx + dirVecX * currentGradStrength * maxVecLen * scale;
-                float y2 = my + dirVecY * currentGradStrength * maxVecLen * scale;
- 
-                // draw gradient visual_imagealization
-                line(visual_image,
-                     Point(x1*scaleFactor,y1*scaleFactor),
-                     Point(x2*scaleFactor,y2*scaleFactor),
-                     CV_RGB(255,0,0),
-                     1);
- 
-            } // for (all bins)
- 
-        } // for (cellx)
-    } // for (celly)
- 
- 
-    // don't forget to free memory allocated by helper data structures!
-    for (int y=0; y<cells_in_y_dir; y++)
-    {
-      for (int x=0; x<cells_in_x_dir; x++)
-      {
-           delete[] gradientStrengths[y][x];            
-      }
-      delete[] gradientStrengths[y];
-      delete[] cellUpdateCounter[y];
-    }
-    delete[] gradientStrengths;
-    delete[] cellUpdateCounter;
- 
-    return visual_image;
- 
-}
+void readme();
 
-/*Computes the set of histogram values and returns them as a 1D vector in the form of...
-  [block(1,1), cell(1,1), bin1], [block(1,1), cell(1,1), bin2], ... [block(1,1), cell(1,1), bin9],
-  [block(1,1), cell(2,1), bin1], [block(1,1), cell(2,1), bin2], ... [block(1,1), cell(2,1), bin9],
-  ...
-  ...
-  ...
-  [block(2,1), cell(1,1), bin1], [block(2,1), cell(1,1), bin2], ... [block(2,1), cell(1,2), bin9],
-  ...
-  ...
-  ...
-
-  Input:
-  img_raw - raw colored image matrix, must have dimensions with multiples of 8
-  
-  Output:
-  img - (optional) output black and white image
-  descriptorsValues - 1D vector of descriptor values as described above
-  
-*/
-std::vector<float> comput_hog (Mat& img_raw, Mat& img)
+/** @function main */
+int main( int argc, char** argv )
 {
-//    Mat img_raw = imread(fname, 1); // load as color image
-    Size imSize = Size(img_raw.rows, img_raw.cols);
- 
-    cvtColor(img_raw, img, CV_RGB2GRAY);
- 
-    Size block_size = Size(16, 16);
-    Size block_stride = Size(8,8);
-    Size cell_size = Size(8,8);
-    int nbins = 9;
+  if( argc != 3 )
+   { return -1; }
 
-    //Specify custom descriptor block and image sizes
-    HOGDescriptor desc( imSize, block_size, block_stride, cell_size, nbins);
+  int CV_LOAD_IMAGE_GRAYSCALE = 0;
+  Mat img_1 = imread( argv[1], CV_LOAD_IMAGE_GRAYSCALE );
+  Mat img_2 = imread( argv[2], CV_LOAD_IMAGE_GRAYSCALE );
 
-// Size(128,64), //winSize
-// Size(16,16), //blocksize
-// Size(8,8), //blockStride,
-// Size(8,8), //cellSize,
-// 9, //nbins,
-// 0, //derivAper,
-// -1, //winSigma,
-// 0, //histogramNormType,
-// 0.2, //L2HysThresh,
-// 0 //gammal correction,
-// //nlevels=64
-//);
- 
-// void HOGDescriptor::compute(const Mat& img, vector<float>& descriptors,
-//                             Size winStride, Size padding,
-//                             const vector<Point>& locations) const
-    std::vector<float> descriptorsValues;
-    std::vector<Point> locations;
-    Size padding = Size(0,0);
+  if( !img_1.data || !img_2.data )
+   { return -1; }
 
-    //I used imSize here for the stride. I don't think it matters when there's no striding
-    desc.compute(img, descriptorsValues, imSize, padding, locations);
+  //-- Step 1: Detect the keypoints using SURF Detector
+  int minHessian = 400;
 
-    std::cout << "HOG descriptor size is " << desc.getDescriptorSize() << std::endl;
-    std::cout << "img dimensions: " << img.cols << " width x " << img.rows << "height" << std::endl;
-    std::cout << "Found " << descriptorsValues.size() << " descriptor values" << std::endl;
-    std::cout << "Nr of locations specified : " << locations.size() << std::endl;
-    return descriptorsValues;
-}
+  SurfFeatureDetector detector( minHessian );
 
-int main(int argc, char** argv )
-{
-    if ( argc != 2 )
-    {
-        printf("usage: DisplayImage.out <Image_Path>\n");
-        return -1;
-    }
+  std::vector<KeyPoint> keypoints_1, keypoints_2;
 
-    Mat image;
-    image = imread( argv[1], 1 );
-    
-    if ( !image.data )
-    {
-        printf("No image data \n");
-        return -1;
-    }
-    namedWindow("Display Image" );
+  detector.detect( img_1, keypoints_1 );
+  detector.detect( img_2, keypoints_2 );
 
-    //Resize the image up the the next factor of 8
-    int newRows = (int(image.rows/8) + 1)*8;
-    int newCols = (int(image.cols/8) + 1)*8;
-    resize(image, image, Size(newRows, newCols));
+  //-- Step 2: Calculate descriptors (feature vectors)
+  SurfDescriptorExtractor extractor( minHessian, 4, 2, true);
 
-    Mat bw_img;
-    Mat real_img;
-    Size imSize = Size(image.rows, image.cols);
-    Size cell_size = Size(8,8);
+  Mat descriptors_1, descriptors_2;
 
-    //Compute Gradients for each cell at each angle
-    std::vector<float> descriptors = comput_hog ( image, bw_img);
-    //Visualize histogram of graidents on the origianl image
-    int enlarge_factor = 4;   //How big to resize the output image
-    int enlarge_histogram_factor = 3; //How large to display each histogram
-    real_img = get_hogdescriptor_visual_image(image, descriptors, imSize, cell_size, enlarge_factor, enlarge_histogram_factor);
+  extractor.compute( img_1, keypoints_1, descriptors_1 );
+  extractor.compute( img_2, keypoints_2, descriptors_2 );
+  std::cout << "Size of keypoint_1: "<< keypoints_1.size()<<std::endl;
+  std::cout << "Size of keypoint_2: "<< keypoints_2.size()<<std::endl;
+  std::cout << "Size of descriptors_1: "<< descriptors_1.size()<<std::endl;
+  std::cout << "Size of descriptors_2: "<< descriptors_2.size()<<std::endl;
 
-    //Display the histogram
-    imshow("Display Image", real_img);
-    waitKey(0);
+  //-- Step 3: Matching descriptor vectors with a brute force matcher
+  BFMatcher matcher(NORM_L2);
+  std::vector< DMatch > matches;
+  matcher.match( descriptors_1, descriptors_2, matches );
 
-    return 0;
-}
+  //-- Draw matches
+  Mat img_matches;
+  drawMatches( img_1, keypoints_1, img_2, keypoints_2, matches, img_matches );
 
+  //-- Show detected matches
+  imshow("Matches", img_matches );
+
+  waitKey(0);
+
+  return 0;
+  }
+
+ /** @function readme */
+ void readme()
+ { std::cout << " Usage: ./SURF_descriptor <img1> <img2>" << std::endl; }
