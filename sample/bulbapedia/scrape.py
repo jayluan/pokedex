@@ -1,5 +1,6 @@
 from bs4 import BeautifulSoup as bs
 import urlparse
+import urllib2
 from urllib2 import urlopen
 from urllib import urlretrieve
 import os
@@ -15,7 +16,11 @@ def scape_pokemon(url, out_folder="/test/", pokemon_id=1):
     target_file = re.search(r"(\w+).png", url)
     target_fname = target_file.group(0)
     generation = re.search(r"Spr_(\w+)_\d+",  target_fname).group(1)
-    soup = bs(urlopen(url))
+    try:
+        soup = bs(urlopen(url))
+    except urllib2.HTTPError, e:
+        print "Error, URL %s not found" % url
+        return
     parsed = list(urlparse.urlparse(url))
 
     scraped_list = []
