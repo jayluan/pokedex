@@ -1,4 +1,4 @@
-import cv, cv2
+import cv2
 import numpy as np
 
 # Find the mask corresponding to the actual pokemon, so we don't do stuff with
