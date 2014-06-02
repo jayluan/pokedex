@@ -35,13 +35,13 @@ for poke in range(0,nPokes):
         
 
 # Now predict the 5th gen pokemon from the first 4
-for poke in range(0,nPokes):
+for poke in range(0,2):
     # Get the pokemon
     testPoke = cv2.imread(imDir + 'pokemon-' + str(poke+1) + '-5b.png')
     if testPoke == None:
         continue
     k,j = np.meshgrid(np.arange(testPoke.shape[1]),np.arange(testPoke.shape[0]))
-    pokeHSV = cv2.cvtColor(aPoke,cv2.COLOR_RGB2HSV)[j,k,1]
+    pokeHSV = cv2.cvtColor(testPoke,cv2.COLOR_RGB2HSV)[j,k,1]
     mask = fpm.findPokeMask(testPoke)
     hist = np.zeros(nBins)
     hist = hist + np.histogram(np.where(pokeHSV*mask),nBins)[0]
@@ -50,8 +50,8 @@ for poke in range(0,nPokes):
     dists = np.zeros(nPokes)
     for potMatch in range(0,nPokes):
         dists[potMatch] = np.linalg.norm(hist-histArr[potMatch,],2)
-    print 'hist for element ' + str(poke) 
-    print hist
-    best = np.argmax(dists)
+        print 'diff between ' + str(poke) + ' and ' + str(potMatch)
+    print 'dists for element ' + str(poke) 
+    #print hist
+    best = np.argmin(dists)
     print 'the best match for ' + str(poke) + ' is ' + str(best) + '.'
-
