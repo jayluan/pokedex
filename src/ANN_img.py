@@ -18,10 +18,10 @@ def getDescriptorKp(img_file, npts):
 #train on input data, which are both 2d numpy arrays. train_data has row = # samples, cols= num of descriptors * descriptor length
 def train_ANN(train_data, classification):
     ninputs = 64*128
-    nhidden = 2
     noutput = NPOKEMON
+    nhidden = int( (ninputs-noutput)/2 ) #side of my single hidden layer
     layers = np.array([ninputs, nhidden, noutput])
-    nnet = cv2.ANN_MLP(layers, cv2.ANN_MLP_SIGMOID_SYM)    #setup the neural net with sigmoid function
+    nnet = cv2.ANN_MLP(layers, cv2.ANN_MLP_SIGMOID_SYM, 1, 1)    #setup the neural net with sigmoid function
     step_size = 0.01
     nsteps = 10000
     max_err = 0.0001
@@ -48,19 +48,23 @@ def normalize(arr):
 def load_pics(path):
     #get all images
     npts = 64    
+
+    #find all the png files in the current path
     images = [os.path.join(path,f) for f in os.listdir(path) if os.path.splitext(f)[1] == '.png']
     desc_list = np.array(np.zeros(npts*128))
+    #numerical classes array
     classy = []
 
     for pic in images:
         desc, kp = getDescriptorKp(pic, npts)
+        #sometimes not all 64 descriptors are returned because there's not enough, in which case we just pad up to 64 descriptors * 128 values/desc
         desc_list = np.vstack( (desc_list, np.resize(desc.flatten(), (1, npts*128))) )
 
         #figure what pokemon it is from the file name
         match = re.search(r"pokemon-(\d+)-", pic).group(1)
         classy.append(int(match))
 
-    #convert classy to binaries
+    #convert classy array to a set of logical arrays
     classfication = np.array(np.zeros(NPOKEMON))
     for i in classy:
         tmp = np.zeros(NPOKEMON)
@@ -91,9 +95,11 @@ def main(path):
     brain.predict(X_test, predictions)
 
     #find the labels that were categorized
-    true_labels = np.argmax(y_test, axis=1)
-    pred_labels = np.argmax(predictions, axis=1)
+    true_labels = np.argmax(y_test, axis=1)+1
+    pred_labels = np.argmax(predictions, axis=1)+1
     num_correct = np.sum(true_labels == pred_labels)
+    print true_labels
+    print pred_labels
     print "Number correct: " + str(num_correct)
 
 if __name__=="__main__":
