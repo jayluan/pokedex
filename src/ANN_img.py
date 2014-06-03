@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 import os, re
-from sklearn import cross_validation
+
 
 #number of pokemon to test
 NPOKEMON = 151
@@ -17,9 +17,9 @@ def getDescriptorKp(img_file, npts):
 
 #train on input data, which are both 2d numpy arrays. train_data has row = # samples, cols= num of descriptors * descriptor length
 def train_ANN(train_data, classification):
-    ninputs = 64*128
+    ninputs = 32*128
     noutput = NPOKEMON
-    nhidden = int( (ninputs-noutput)/2 ) #side of my single hidden layer
+    nhidden = 350 #side of my single hidden layer
     layers = np.array([ninputs, nhidden, noutput])
     nnet = cv2.ANN_MLP(layers, cv2.ANN_MLP_SIGMOID_SYM, 1, 1)    #setup the neural net with sigmoid function
     step_size = 0.01
@@ -47,7 +47,7 @@ def normalize(arr):
 #returns 2d set of training features and 2d set of classifications, where each row should be all 150 0's and one 1 for whatever pokemon the training data represents.
 def load_pics(path):
     #get all images
-    npts = 64    
+    npts = 32    
 
     #find all the png files in the current path
     images = [os.path.join(path,f) for f in os.listdir(path) if os.path.splitext(f)[1] == '.png']
@@ -57,7 +57,7 @@ def load_pics(path):
 
     for pic in images:
         desc, kp = getDescriptorKp(pic, npts)
-        #sometimes not all 64 descriptors are returned because there's not enough, in which case we just pad up to 64 descriptors * 128 values/desc
+        #sometimes not all 32 descriptors are returned because there's not enough, in which case we just pad up to 32 descriptors * 128 values/desc
         desc_list = np.vstack( (desc_list, np.resize(desc.flatten(), (1, npts*128))) )
 
         #figure what pokemon it is from the file name
@@ -93,10 +93,20 @@ def main(path):
     
     #predict on test data
     brain.predict(X_test, predictions)
+    brain.save('ANN_img')
+
+    # svm_params = dict( kernel_type = cv2.SVM_LINEAR,
+    #                 svm_type = cv2.SVM_C_SVC,
+    #                 C=2.67, gamma=5.383 )
+    # svm = cv2.SVM()
+    # y_train = (np.float32(np.argmax(y_train, axis=1))+1)/10
+    # svm.train(np.float32(X_train), np.float32(y_train), params=svm_params)
+    # predictions = np.zeros(10)
+    # svm.predict_all(np.float32(X_test), predictions)
 
     #find the labels that were categorized
     true_labels = np.argmax(y_test, axis=1)+1
-    pred_labels = np.argmax(predictions, axis=1)+1
+    pred_labels = (np.argmax(predictions, axis=1)+1)
     num_correct = np.sum(true_labels == pred_labels)
     print true_labels
     print pred_labels
