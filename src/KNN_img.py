@@ -1,4 +1,4 @@
-from ANN_img_bak import *
+from ANN_img import *
 from sklearn.neighbors import KNeighborsClassifier
 import numpy as np
 
