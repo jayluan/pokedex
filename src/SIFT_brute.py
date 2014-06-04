@@ -4,10 +4,12 @@ import os
 import re
 
 NPTS = 128
+PLOT_ALL_MATCHES = 0
+PLOT_WRONG_MATCHES = 0
 
 def getDescriptorKp(img_file, npts):
     img = cv2.imread(img_file, 0)    #0 = read black and white
-    surf = cv2.SIFT(nfeatures=npts)
+    surf = cv2.SIFT(nfeatures=npts, edgeThreshold=20)
     kp, des = surf.detectAndCompute(img, None)
     return des, kp, img
 
@@ -32,7 +34,7 @@ def load_pics(path):
         classy.append(int(match))
 
     #remove the first row of dummy values
-    desc_list = np.delete(desc_list, 0, 0)
+    #desc_list = np.delete(desc_list, 0, 0)
 
     return desc_list, kp_list, classy, img_list
 
@@ -129,23 +131,45 @@ def main(path):
     guesses = []
     for target,kp1,poke_id1, img1 in zip(X_test_desc, X_test_kp, y_test, test_img):
         longest_kp = 0
+        longest_matches = None
         guess_id = -1
+        best_img = []
         for suspect, kp2, poke_id2, img2 in zip(X_train_desc, X_train_kp, y_train, train_img):
             kp_pairs = match_images(target, kp1, suspect, kp2)
             if(len(kp_pairs) > longest_kp):
+                longest_matches = kp_pairs
                 guess_id = poke_id2
                 longest_kp = len(kp_pairs)
-                draw_matches('matches', kp_pairs, img1, img2)
-                cv2.waitKey()
-                cv2.destroyAllWindows()
-
+                best_img = img2
+                if(PLOT_ALL_MATCHES):
+                    draw_matches('matches', kp_pairs, img1, img2)
+                    cv2.waitKey()
+                    cv2.destroyAllWindows()
+        if(guess_id == poke_id1):
+            print "Got pokemon %d correct" % poke_id1
+        else if(PLOT_WRONG_MATCHES):
+            draw_matches('matches', longest_matches, img1, best_img)
+            cv2.waitKey()
+            cv2.destroyAllWindows()
         guesses.append(guess_id)
 
     print "Number correct: " + str(np.sum(guesses == y_test))
+    for i, j in zip(y_test, guesses):
+        print "%03d, %03d" % (i, j)
+
+def main_test():
+    path = './../sample/testDitto/'
+    X_train_desc, X_train_kp, y_train, train_img = load_pics(path)
+    kp = match_images(X_train_desc[0], X_train_kp[0], X_train_desc[1], X_train_kp[1])
+    if kp:
+        draw_matches('find_obj', kp, train_img[0], train_img[1])
+        cv2.waitKey()
+        cv2.destroyAllWindows()
+
 
 if __name__=="__main__":
     main('./../sample/test/')
-
+    #main_test()
 
 
 
