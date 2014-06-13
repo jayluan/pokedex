@@ -1,3 +1,8 @@
+'''
+SIFT_brute.py
+Purpose: Brute force SIFT descriptor matcher. Returns the image in the training set which has the highest number of descriptor matches
+'''
+
 import numpy as np
 import cv2
 import os
@@ -7,12 +12,14 @@ NPTS = 128
 PLOT_ALL_MATCHES = 0
 PLOT_WRONG_MATCHES = 0
 
+#function to create SIFT descriptors from an input img_file path
 def getDescriptorKp(img_file, npts):
     img = cv2.imread(img_file, 0)    #0 = read black and white
     surf = cv2.SIFT(nfeatures=npts, edgeThreshold=20)
     kp, des = surf.detectAndCompute(img, None)
     return des, kp, img
 
+#loads all the .png images from the given path. a list of descriptors and associated keypoints and pokemon IDs are lso returned
 def load_pics(path):
     #get all images
     #find all the png files in the current path
@@ -38,6 +45,7 @@ def load_pics(path):
 
     return desc_list, kp_list, classy, img_list
 
+#takes two sets of descriptors and key points and matches them up, returning the set of common key point pairs
 def match_images(desc1, kp1, desc2, kp2):
     """Given two images, returns the matches"""
     matcher = cv2.BFMatcher(cv2.NORM_L2)
@@ -45,7 +53,7 @@ def match_images(desc1, kp1, desc2, kp2):
     kp_pairs = filter_matches(kp1, kp2, raw_matches)
     return kp_pairs
 
-
+#filter key pint matches such that they must be far enough apart from one another
 def filter_matches(kp1, kp2, matches, ratio = 0.75):
     mkp1, mkp2 = [], []
     for m in matches:
@@ -58,7 +66,7 @@ def filter_matches(kp1, kp2, matches, ratio = 0.75):
     kp_pairs = zip(mkp1, mkp2)
     return kp_pairs
 
-
+#draws the matching key pairs and non matching points on the images
 def explore_match(win, img1, img2, kp_pairs, status = None, H = None):
     h1, w1 = img1.shape[:2]
     h2, w2 = img2.shape[:2]
@@ -102,7 +110,7 @@ def explore_match(win, img1, img2, kp_pairs, status = None, H = None):
     cv2.imshow(win, vis)
 
 
-
+#draws matches and attemps t find the homography between two imags
 def draw_matches(window_name, kp_pairs, img1, img2):
     """Draws the matches for """
     mkp1, mkp2 = zip(*kp_pairs)

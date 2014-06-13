@@ -1,3 +1,10 @@
+'''
+ANN_img.py
+Purpose: Trains an artificial neural net using various parameters
+
+'''
+
+
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
@@ -5,9 +12,12 @@ import os, re
 
 
 #number of pokemon to test
-NPOKEMON = 151
+NPOKEMON = 10
 
 #Get the descrptor and key points
+#input: img_file - image file path
+#       npts - max number of key points
+#output: SIFT descriptors des, and key points kp
 def getDescriptorKp(img_file, npts):
     img = cv2.imread(img_file, 0)    #0 = read black and white
     surf = cv2.SIFT(nfeatures=npts)
@@ -94,15 +104,6 @@ def main(path):
     #predict on test data
     brain.predict(X_test, predictions)
     brain.save('ANN_img')
-
-    # svm_params = dict( kernel_type = cv2.SVM_LINEAR,
-    #                 svm_type = cv2.SVM_C_SVC,
-    #                 C=2.67, gamma=5.383 )
-    # svm = cv2.SVM()
-    # y_train = (np.float32(np.argmax(y_train, axis=1))+1)/10
-    # svm.train(np.float32(X_train), np.float32(y_train), params=svm_params)
-    # predictions = np.zeros(10)
-    # svm.predict_all(np.float32(X_test), predictions)
 
     #find the labels that were categorized
     true_labels = np.argmax(y_test, axis=1)+1
